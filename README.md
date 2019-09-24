@@ -5,4 +5,6 @@ Assignment involved creating a model to predict traffic congestion along several
 
 Thus, 18 seperate models were developed through cross validation. All models and charts were developed in Python and presented in iPython notebooks. 
 
+Initial spatial-temporal autocorrelation analysis was performed in R. The autocorrelation script was presented as an R Markdown document.
+
 
