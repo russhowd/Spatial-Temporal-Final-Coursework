@@ -1,0 +1,352 @@
+
+```{r}
+library(maptools)
+library(lattice)
+library(spdep)
+library(sp)
+library(rgdal)
+library(tmap)
+library(ggplot2)
+library(gridExtra)
+library(gstat)
+library(OpenStreetMap)
+library(spacetime)
+library(data.table)
+
+
+# Read in road data
+uk_road <- read.csv("ujt_matrix_ec_dates_transposed2.csv")
+
+#uk_road <- data.matrix(uk_road)
+
+# make the road IDs the rownames
+samp2 <- uk_road[,-1]
+rownames(samp2) <- uk_road[,1]
+uk_road <- samp2
+
+
+# Load in the spatial weights matrix
+w_matrix <- read.csv("LCAPAdj_matrix2.csv")
+
+# remove the first column of the matrix (the road IDs)
+w_matrix <- subset( w_matrix, select = -X )
+
+
+# Load in starima for the ST ACF and PACF
+source("starima_package.R")
+#Wmat <- listw2mat(w_matrix)
+
+# Convert the spatial weights dataframe to a R matrix
+w_matrix2 <- t(w_matrix)%*%as.matrix(w_matrix)
+
+
+xtick <- seq(0,500,50)
+# Perform ST-ACF
+stacf(t(uk_road), w_matrix2, 5300)
+#axis(side=1, at=xtick, labels = FALSE)
+
+# Perform ST-PACF
+stpacf(t(uk_road), w_matrix2, 100)
+```
+
+
+
+
+With new, meters/second data
+
+```{r}
+
+# Read in road data
+uk_road2 <- read.csv("ujt_matrix_FINAL_trans.csv")
+
+
+
+# make the road IDs the rownames
+samp3 <- uk_road2[,-1]
+rownames(samp3) <- uk_road2[,1]
+uk_road2 <- samp3
+
+# Make it into a matrix
+uk_road2 <- data.matrix(uk_road2)
+
+
+# Load in starima for the ST ACF and PACF
+source("starima_package.R")
+
+
+# Convert the spatial weights dataframe to a R matrix
+w_matrix2 <- t(w_matrix)%*%as.matrix(w_matrix)
+
+
+# Perform ST-ACF
+stacf(t(uk_road2), w_matrix2, 5300)
+```
+
+```{r}
+# Perform ST-PACF
+stpacf(t(uk_road2), w_matrix2, 5300)
+```
+
+```{r}
+# Re-run ST-ACF and ST-PACF with new spatial weights matrix
+
+# Load in the spatial weights matrix
+w_matrix_second <- read.csv("adj_matrix_secondorder.csv")
+
+# make the first column the rownames
+sampv2 <- w_matrix_second[,-1]
+rownames(sampv2) <- w_matrix_second[,1]
+w_matrix_second <- sampv2
+
+
+# Load in starima for the ST ACF and PACF
+source("starima_package.R")
+
+# Convert the spatial weights dataframe to a R matrix
+w_matrix_final <- t(w_matrix_second)%*%as.matrix(w_matrix_second)
+
+
+# Perform ST-ACF
+stacf(t(uk_road2), w_matrix_final, 5300)
+
+```
+
+```{r}
+# Perform ST-PACF for first 180 lags
+stpacf(t(uk_road2), w_matrix_final, 180)
+```
+
+
+
+```{r}
+# Difference the road data
+ukroad_diff <- diff(uk_road2)
+
+acf(ukroad_diff, lag.max = 2)
+
+```
+```{r}
+# Perform ST-ACF on first 180 lags
+stacf(t(uk_road2), w_matrix_final, 180)
+```
+
+
+
+
+
+
+
+
+
+NEW PLOTS
+
+
+
+
+
+```{r}
+# Plot first 12 time lags ST-ACF
+
+p <- stacf(t(uk_road2), w_matrix_final, 11)
+
+
+df <- data.frame(matrix(unlist(p$stacf), nrow=12),stringsAsFactors = FALSE)
+ubound <- p$ubound
+lbound <- p$lbound
+
+colnames(df) <- c("stacf")
+df$lag <- 1:nrow(df) 
+
+
+theme_update(plot.title = element_text(hjust = 0.5))
+
+q2 <- ggplot(data = df, mapping = aes(x = lag, y = stacf)) +
+       geom_hline(aes(yintercept = 0)) +
+       geom_segment(mapping = aes(xend = lag, yend = 0), color="red") +
+  geom_hline(aes(yintercept = ubound), linetype = 2, color = 'darkblue') +  
+  geom_hline(aes(yintercept = lbound), linetype = 2, color = 'darkblue') +     geom_point()
+
+q2 + scale_x_continuous(name ="Time Lags (5 Minute Intervals)", breaks=seq(0,12,1)) +
+  scale_y_continuous(name ="ST Autocorrelation") +
+  ggtitle("Space-Time Autocorrelation Function - 12 Lags")
+```
+
+```{r}
+# Plot first 12 ST-PACF lags
+
+p2 <- stpacf(t(uk_road2), w_matrix_final, 11)
+```
+```{r}
+# Plot first 180 time lags ST-ACF
+p <- stacf(t(uk_road2), w_matrix_final, 4)
+
+
+df <- data.frame(matrix(unlist(p$stacf), nrow=5),stringsAsFactors = FALSE)
+ubound <- p$ubound
+lbound <- p$lbound
+
+colnames(df) <- c("stacf")
+df$lag <- 1:nrow(df) 
+
+
+theme_update(plot.title = element_text(hjust = 0.5))
+
+q2 <- ggplot(data = df, mapping = aes(x = lag, y = stacf)) +
+       geom_hline(aes(yintercept = 0)) +
+       geom_segment(mapping = aes(xend = lag, yend = 0), color="red") +
+  geom_hline(aes(yintercept = ubound), linetype = 2, color = 'darkblue') +  
+  geom_hline(aes(yintercept = lbound), linetype = 2, color = 'darkblue') +     geom_point()
+
+q2 + scale_x_continuous(name ="Time Lags (5 Minute Intervals)", breaks=seq(0,5,1)) +
+  scale_y_continuous(name ="ST Autocorrelation") +
+  ggtitle("Space-Time Autocorrelation Function - 5 Lags")
+
+```
+
+
+
+
+
+
+
+```{r}
+# Plot first 180 time lags ST-ACF
+
+p_180 <- stacf(t(uk_road2), w_matrix_final, 180)
+
+
+df <- data.frame(matrix(unlist(p_180$stacf), nrow=181),stringsAsFactors = FALSE)
+ubound <- p_180$ubound
+lbound <- p_180$lbound
+
+colnames(df) <- c("stacf")
+df$lag <- 1:nrow(df) 
+
+
+theme_update(plot.title = element_text(hjust = 0.5))
+
+q2 <- ggplot(data = df, mapping = aes(x = lag, y = stacf)) +
+       geom_hline(aes(yintercept = 0)) +
+       geom_segment(mapping = aes(xend = lag, yend = 0), color="red") +
+  geom_hline(aes(yintercept = ubound), linetype = 2, color = 'darkblue') +  
+  geom_hline(aes(yintercept = lbound), linetype = 2, color = 'darkblue')     #geom_point()
+
+q2 + scale_x_continuous(name ="Time Lags (5 Minute Intervals)", breaks=seq(0,180,50)) +
+  scale_y_continuous(name ="ST Autocorrelation") +
+  ggtitle("Space-Time Autocorrelation Function - 180 Lags")
+```
+```{r}
+# Plot first 12 ST-PACF lags
+
+p2 <- stpacf(t(uk_road2), w_matrix_final, 11)
+
+df <- data.frame(matrix(unlist(p2$stpacf), nrow=12),stringsAsFactors = FALSE)
+ubound <- p2$ubound
+lbound <- p2$lbound
+
+colnames(df) <- c("stpacf")
+df$lag <- 1:nrow(df) 
+
+
+theme_update(plot.title = element_text(hjust = 0.5))
+
+q2 <- ggplot(data = df, mapping = aes(x = lag, y = stpacf)) +
+       geom_hline(aes(yintercept = 0)) +
+       geom_segment(mapping = aes(xend = lag, yend = 0), color="red") +
+  geom_hline(aes(yintercept = ubound), linetype = 2, color = 'darkblue') +  
+  geom_hline(aes(yintercept = lbound), linetype = 2, color = 'darkblue') +     geom_point()
+
+q2 + scale_x_continuous(name ="Time Lags (5 Minute Intervals)", breaks=seq(0,12,1)) +
+  scale_y_continuous(name ="ST Partial Autocorrelation") +
+  ggtitle("Space-Time Partial Autocorrelation Function - 12 Lags")
+```
+
+```{r}
+# Plot first 5 ST-PACF lags
+
+p_5 <- stpacf(t(uk_road2), w_matrix_final, 4)
+
+df <- data.frame(matrix(unlist(p2$stpacf), nrow=5),stringsAsFactors = FALSE)
+ubound <- p_5$ubound
+lbound <- p_5$lbound
+
+colnames(df) <- c("stpacf")
+df$lag <- 1:nrow(df) 
+
+
+theme_update(plot.title = element_text(hjust = 0.5))
+
+q2 <- ggplot(data = df, mapping = aes(x = lag, y = stpacf)) +
+       geom_hline(aes(yintercept = 0)) +
+       geom_segment(mapping = aes(xend = lag, yend = 0), color="red") +
+  geom_hline(aes(yintercept = ubound), linetype = 2, color = 'darkblue') +  
+  geom_hline(aes(yintercept = lbound), linetype = 2, color = 'darkblue') +     geom_point()
+
+q2 + scale_x_continuous(name ="Time Lags (5 Minute Intervals)", breaks=seq(0,5,1)) +
+  scale_y_continuous(name ="ST Partial Autocorrelation") +
+  ggtitle("Space-Time Partial Autocorrelation Function - 5 Lags")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+# Plot first 180 ST-PACF lags
+
+p2 <- stpacf(t(uk_road2), w_matrix_final, 180)
+
+df <- data.frame(matrix(unlist(p2$stpacf), nrow=181),stringsAsFactors = FALSE)
+ubound <- p2$ubound
+lbound <- p2$lbound
+
+colnames(df) <- c("stpacf")
+df$lag <- 1:nrow(df) 
+
+
+theme_update(plot.title = element_text(hjust = 0.5))
+
+q2 <- ggplot(data = df, mapping = aes(x = lag, y = stpacf)) +
+       geom_hline(aes(yintercept = 0)) +
+       geom_segment(mapping = aes(xend = lag, yend = 0), color="red") +
+  geom_hline(aes(yintercept = ubound), linetype = 2, color = 'darkblue') +  
+  geom_hline(aes(yintercept = lbound), linetype = 2, color = 'darkblue') +     geom_point()
+
+q2 + scale_x_continuous(name ="Time Lags (5 Minute Intervals)", breaks=seq(0,180,50)) +
+  scale_y_continuous(name ="ST Partial Autocorrelation") +
+  ggtitle("Space-Time Partial Autocorrelation Function - 180 Lags")
+```
+```{r}
+# Plot ALL time lags ST-ACF
+
+p_all <- stacf(t(uk_road2), w_matrix_final, 5300)
+
+
+df <- data.frame(matrix(unlist(p_all$stacf), nrow=5301),stringsAsFactors = FALSE)
+ubound <- p_all$ubound
+lbound <- p_all$lbound
+
+colnames(df) <- c("stacf")
+df$lag <- 1:nrow(df) 
+
+
+theme_update(plot.title = element_text(hjust = 0.5))
+
+q2 <- ggplot(data = df, mapping = aes(x = lag, y = stacf)) +
+       geom_hline(aes(yintercept = 0)) +
+       geom_segment(mapping = aes(xend = lag, yend = 0), color="red") +
+  geom_hline(aes(yintercept = ubound), linetype = 2, color = 'darkblue') +  
+  geom_hline(aes(yintercept = lbound), linetype = 2, color = 'darkblue')    #geom_point()
+
+q2 + scale_x_continuous(name ="Time Lags (5 Minute Intervals)", breaks=seq(0,5400,500)) +
+  scale_y_continuous(name ="ST Autocorrelation") +
+  ggtitle("Space-Time Autocorrelation Function - All Lags")
+```
+
